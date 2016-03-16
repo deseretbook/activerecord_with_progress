@@ -20,9 +20,11 @@ And then execute:
 
 ## Usage
 
-Provides `_with_progress` overrides for several common ActiveRecord iteration
-methods.  They are not guaranteed to have the same memory usage, computation
-requirements, or access patterns as the methods they emulate.
+Provides `_with_progress` wrappers (via `method_missing`) for several common
+ActiveRecord iteration methods.  They should have, but are not guaranteed to
+have, the same memory usage, computation requirements, and access patterns as
+the methods they wrap.
+
 
 ```ruby
 SomeModel.all.each_with_progress do |record|
@@ -33,34 +35,45 @@ SomeModel.all.find_each_with_progress do |record|
   # ...
 end
 
-SomeModel.all.each_with_index_and_progress do |record|
+SomeModel.all.each_with_index_and_progress do |record, index|
   # ...
 end
 
-SomeModel.where(condition: true).find_each_with_index_and_progress do |record, index|
+SomeModel.where(condition: true).each_with_index_and_progress do |record, index|
   # ...
 end
 
-SomeModel.all.map_with_progress do |record|
+mapped = SomeModel.all.map_with_progress do |record|
   # ...
 end
 ```
 
-There's an option to catch errors and return them:
+There's an option to catch errors and return them in a second return value:
 
 ```ruby
-# Returns a Hash mapping failed records to exceptions
-SomeModel.all.each_with_progress(handle_errors: true) do |record|
+# Returns the #each return value, and a Hash mapping failed records to exceptions
+_, errors = SomeModel.all.each_with_progress(handle_errors: true) do |record|
   raise 'Handled'
 end
 
-# The map will contain exception objects for failed records
-SomeModel.where(some: 'condition').map_with_progress(handle_errors: true) do |record|
-  raise 'In the map'
+# Returns the map with nil for errors, and a Hash with exceptions.
+mapped, errors = SomeModel.where(some: 'condition').map_with_progress(handle_errors: true) do |record|
+  raise 'Nil in the map'
 end
 ```
 
-You can change the progress bar format from the colorful default:
+The `find_in_batches` method is a little bit tricker to work with:
+
+```ruby
+# Need to override :total; I would use #find_each_with_progress instead.
+query = SomeModel.where(query: 'parameters')
+query.find_in_batches_with_progress(batch_size: 5, total: query.count / 5 + !) do |batch| puts batch.size end
+```
+
+
+You can change the progress bar format from the colorful default.  See the docs
+for [ruby-progressbar](https://rubygems.org/gems/ruby-progressbar) for format
+details.
 
 ```ruby
 ActiverecordWithProgress.progress_format = 'a ruby-progressbar format string'

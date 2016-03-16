@@ -12,11 +12,17 @@ module ActiverecordWithProgress
     attr_accessor :progress_format
 
     # Creates a progress bar with our own default options and format, unless
-    # overrided by the options hash.
+    # overrided by the options hash.  Also works around Spring's removal of
+    # IO.console for Rails apps that use Spring by setting :length.
     def create(options=nil)
-      opts = { format: progress_format }
+      opts = {
+        format: progress_format,
+        length: (IO.console.winsize[1] rescue nil) || ENV['columns'] || `tput cols`
+      }
       opts.merge!(options) if options.is_a?(Hash)
       ProgressBar.create(opts)
     end
   end
 end
+
+require 'activerecord_with_progress/activerecord_relation'
